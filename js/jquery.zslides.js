@@ -1,7 +1,9 @@
-$(function(){
-    /**
-     * @author wkz
-     */
+/**
+ * @author wukezhan
+ * 
+ */
+
+;(function($){
     var defaults = {
         wrapper:document,
         slideOn:'select',
@@ -36,7 +38,6 @@ $(function(){
                 .addClass(this.opts.slideOn)
                 .fadeIn(this.opts.speed);
             this.keys.length && this.keys.eq(this.index).removeClass(this.opts.keyOff).addClass(this.opts.keyOn);
-
         }
     };
     function Z_Slides(opts){
@@ -137,10 +138,12 @@ $(function(){
             }, this.interval);
         }
     };
+    
+    //export to jquery
     $.fn.zslides = function(opts){
     	return this.each(function(){
     		opts.wrapper = this;
     		this.zslides = new Z_Slides(opts);
     	});
     };
-});
+})(jQuery||Zepto);
