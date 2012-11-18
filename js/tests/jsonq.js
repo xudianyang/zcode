@@ -16,11 +16,6 @@ function time(id){
 }
 
 (function(){
-    var a = [1,2,3];
-    a['$id'] = 6;
-    console.log(a);
-    console.log(a['$id']);
-    return ;
     var data = [
         {id:0, data:'a', time:1000},
         {id:1, data:'a', time:1001},
