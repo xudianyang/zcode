@@ -1,6 +1,6 @@
 /**
  * JSON简单查询功能
- * jsonq.js: a simple javascript library for querying JSON
+ * A simple lib used to query in JSON
  * @author wukezhan
  */
 
@@ -31,27 +31,32 @@
     function JSONQ(){
         var _data = {};
 
-
         /**
          * 载入数据
          * @param {Object} data
          * @return {JSONQ}
          */
         this.load = function(data){
-            var zs = this;
-            var $id = 1;
             _data = data;
+            each(_data, function(item, i){
+                item['$id'] = i;
+            });
             return this;
         };
 
+        /**
+         *
+         * @return {JSONQ.Results}
+         */
         this.prepare = function(){
             var _results = [];
-            each(_data, function(cursor, i){
-                cursor['$id'] = i;
-                _results.push(cursor);
+            each(_data, function(item, i){
+                _results.push(item);
             });
             return new JSONQ.Results(_results);
         };
+
+
     }
     JSONQ.fn = JSONQ.prototype;
 
@@ -62,7 +67,7 @@
      */
     JSONQ.fn.find = function(query){
         var zs = this;
-        var results = this.filter(query.filter);
+        var results = this.prepare();
         if(query.filter){
             results.filter(query.filter);
         }
@@ -90,12 +95,6 @@
     JSONQ.Results = function(results){
         var _results = results;
 
-        /*this.__defineGetter__('data', function(){
-         return _data;
-         });
-         this.__defineSetter__('data', function(data){
-         this.load(data);
-         });*/
         this.__defineGetter__('results', function(){
             return _results;
         });
@@ -117,9 +116,9 @@
                 return this;
             }else if(type == '[object Function]'){
                 var zs = this;
-                each(_results, function(cursor){
-                    if(filter.call(zs, cursor)){
-                        tmp.push(cursor);
+                each(_results, function(item){
+                    if(filter.call(zs, item)){
+                        tmp.push(item);
                     }
                 });
             }else if(type == '[object Array]'||type == '[object Object]'){
@@ -127,9 +126,9 @@
                     filter = new JSONQ.Filter(filter)
                 }
                 var prepared = filter.prepared();
-                each(_results, function(cursor){
-                    if(JSONQ.Filter.execute(cursor, prepared)){
-                        tmp.push(cursor);
+                each(_results, function(item){
+                    if(JSONQ.Filter.execute(item, prepared)){
+                        tmp.push(item);
                     }
                 });
             }
@@ -225,8 +224,8 @@
     JSONQ.Results.fn.map = function(callback){
         var zs = this;
         var result = [];
-        each(this.results, function(cursor){
-            result.push(callback.call(this, cursor));
+        each(this.results, function(item){
+            result.push(callback.call(this, item));
         });
         return result;
     };
@@ -239,8 +238,8 @@
     JSONQ.Results.fn.reduce = function(callback, initial){
         var zs = this;
         var result = initial||null;
-        each(this.results, function(cursor){
-            result = callback.call(zs, result, cursor);
+        each(this.results, function(item){
+            result = callback.call(zs, result, item);
         });
         return result;
     };
@@ -255,8 +254,8 @@
                 throw {msg:'Error: invalid callback type!', obj:callback};
             }
             var count = 0;
-            each(this.results, function(cursor){
-                if(callback.call(null, cursor)){
+            each(this.results, function(item){
+                if(callback.call(null, item)){
                     count ++;
                 }
             });
@@ -265,25 +264,16 @@
     };
     JSONQ.Results.fn.groupBy = function(callback){
         var results = {};
-        each(this.results, function(cursor){
-            var key = callback.call(null, cursor);
+        each(this.results, function(item){
+            var key = callback.call(null, item);
             if(!results[key]){
                 results[key] = [];
             }
-            results[key].push(cursor);
+            results[key].push(item);
         });
         return results;
     };
 
-    /**
-     * 
-     * @param filter
-     * [$k, $h, $v]
-     * [$h, $v]
-     * function(){}
-     * {k1:v1, k2:v2, ...}
-     * [filter1, '$or', filter2, ...]
-     */
     JSONQ.Filter = function(filter){
         var _filter = JSONQ.Filter.format(filter);
         this.prepared = function(){
@@ -294,22 +284,22 @@
         });
     };
     JSONQ.Filter.fn = JSONQ.Filter.prototype;
-    JSONQ.Filter.execute = function(cursor, filter){
+    JSONQ.Filter.execute = function(item, filter){
         var flag = false;
         var type = type_of(filter);
         if(type == '[object Array]'){
             each(filter, function(grp){
                 var _flag = true;
                 flag = flag || each(grp, function(f){
-                    _flag = _flag && JSONQ.Filter.execute(cursor, f);
+                    _flag = _flag && JSONQ.Filter.execute(item, f);
                     return _flag;
                 });
             });
         }else{
             if(type=='[object Function]'){
-                flag = filter.call(null, cursor, filter);
+                flag = filter.call(null, item, filter);
             }else{
-                flag = JSONQ.Filter.$[filter.$h](cursor, filter);
+                flag = JSONQ.Filter.$[filter.$h](item, filter);
             }
         }
         return flag;
@@ -383,9 +373,8 @@
         each(filter, function(v, k){
             _filter.push({
                 $k: k,
-                $h: '$compare',
-                $v: v,
-                $t: '='
+                $h: '$eq',
+                $v: v
             });
         });
         return _filter;
@@ -411,9 +400,6 @@
         return grps;
     };
 
-
-
-
     /**
      * 工具方法
      * @type {Object}
@@ -427,10 +413,10 @@
         unique: function(arr){
             var tmp = [];
             var key = {};
-            each(arr, function(cursor, index){
-                var _id = cursor['$id'];
+            each(arr, function(item, index){
+                var _id = item['$id'];
                 if(!key[_id]){
-                    tmp.push(cursor);
+                    tmp.push(item);
                     key[_id] = 1;
                 }else{
                     key[_id]++;
@@ -445,8 +431,8 @@
          * @return {Array}
          */
         u: function(arr1, arr2){
-            each(arr2, function(cursor){
-                arr1.push(cursor);
+            each(arr2, function(item){
+                arr1.push(item);
             });
             return JSONQ.util.unique(arr1);
         },
@@ -459,65 +445,57 @@
         n: function(arr1, arr2){
             var o1 = {};
             var arr = [];
-            each(arr1, function(cursor){
-                o1[cursor['$id']] = cursor;
+            each(arr1, function(item){
+                o1[item['$id']] = item;
             });
-            each(arr2, function(cursor){
-                if(o1[cursor['$id']]){
-                    arr.push(o1[cursor['$id']]);
+            each(arr2, function(item){
+                if(o1[item['$id']]){
+                    arr.push(o1[item['$id']]);
                 }
             });
             return arr;
         }
     };
     JSONQ.Filter.token2handler = {
-        '=':'$compare',
-        '>':'$compare',
-        '<':'$compare',
-        '==':'$compare',
-        '!=':'$compare',
-        '>=':'$compare',
-        '<=':'$compare',
-        '===':'$compare'
+        '=':'$eq',
+        '>':'$gt',
+        '<':'$lt',
+        '==':'$eq',
+        '!=':'$neq',
+        '>=':'$gte',
+        '<=':'$lte'
     };
     JSONQ.Filter.$ = {
-        /**
-         *
-         * @param {Mixed} cursor
-         * @param {Array} filter
-         * @return {Boolean}
-         */
-        $compare: function(cursor, filter){
-            var v1 = cursor[filter.$k],
-                v2 = filter.$v;
-            switch (filter.$t){
-                case '=':
-                case '==':
-                    return v1 == v2;
-                case '>':
-                    return v1 > v2;
-                case '<':
-                    return v1 < v2;
-                case '>=':
-                    return v1 >= v2;
-                case '<=':
-                    return v1 <= v2;
-                case '!=':
-                    return v1 != v2;
-            }
+        $eq:function(item, filter){
+           return item[filter.$k] == filter.$v;
+        },
+        $neq:function(item, filter){
+            return item[filter.$k] != filter.$v;
+        },
+        $gt:function(item, filter){
+            return item[filter.$k] > filter.$v;
+        },
+        $lt:function(item, filter){
+            return item[filter.$k] < filter.$v;
+        },
+        $gte:function(item, filter){
+            return item[filter.$k] >= filter.$v;
+        },
+        $lte:function(item, filter){
+            return item[filter.$k] <= filter.$v;
         },
         /**
          *
-         * @param {Object} cursor
+         * @param {Object} item
          * @param {Array} filter
          * @return {Boolean}
          */
-        $in: function(cursor, filter){
+        $in: function(item, filter){
             if(!filter.$v){
                 return false;
             }
             for(var i in filter.$v){
-                if(cursor[filter.$k] == filter.$v[i]){
+                if(item[filter.$k] == filter.$v[i]){
                     return true;
                 }
             }
@@ -525,16 +503,16 @@
         },
         /**
          *
-         * @param {Object} cursor
+         * @param {Object} item
          * @param {Array} filter
          * @return {Boolean}
          */
-        $notin: function(cursor, filter){
+        $notin: function(item, filter){
             if(!filter.$v){
                 return true;
             }
             for(var i in filter.$v){
-                if(cursor[filter.$k] == filter.$v[i]){
+                if(item[filter.$k] == filter.$v[i]){
                     return false;
                 }
             }
@@ -542,45 +520,45 @@
         },
         /**
          *
-         * @param {Object} cursor
+         * @param {Object} item
          * @param {Array} filter
          * @return {Boolean}
          */
-        $not: function(cursor, filter){
-            return cursor[filter.$k] != filter.$v;
+        $not: function(item, filter){
+            return item[filter.$k] != filter.$v;
         },
         /**
          *
-         * @param {Object} cursor
+         * @param {Object} item
          * @param {Array} filter
          * @return {Boolean}
          */
-        $match: function(cursor, filter){
-            return filter.$v.test(cursor[filter.$k]);
+        $match: function(item, filter){
+            return filter.$v.test(item[filter.$k]);
         },
         /**
          *
-         * @param {Object} cursor
+         * @param {Object} item
          * @param {Array} filter
          * @return {Boolean}
          */
-        $filter: function(cursor, filter){
-            if(filter.$v && type_of(cursor[filter.$k])!='[object Undefined]'){
-                return JSONQ.Filter.execute(cursor[filter.$k], filter.$v);
+        $filter: function(item, filter){
+            if(filter.$v && type_of(item[filter.$k])!='[object Undefined]'){
+                return JSONQ.Filter.execute(item[filter.$k], filter.$v);
             }
             return false;
         },
         /**
          *
-         * @param {Object} cursor
+         * @param {Object} item
          * @param {Array} filter
          * @return {Boolean}
          */
-        $callback: function(cursor, filter){
-            return filter.$v.call(null, cursor, filter.$k);
+        $callback: function(item, filter){
+            return filter.$v.call(null, item, filter.$k);
         }
     };
 
     exports.JSONQ = exports.jsonq = JSONQ;
 
-})(this.exports?this.exports:this);
+})(typeof exports == 'undefined'?this:exports);
