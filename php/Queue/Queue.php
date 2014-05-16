@@ -7,7 +7,6 @@ namespace Air\Redis;
  * 2014-05-15 23:27
  *
  */
-
 class Queue
 {
     /**
@@ -19,25 +18,31 @@ class Queue
      */
     protected $_server = array(
         'host' => '127.0.0.1',
-        'port' => '6379'
+        'port' => 6379,
+        'timeout' => 0.0
     );
-    public function __construct($server=array())
+
+    public function __construct($server = array())
     {
-        foreach($server as$k=>$v){
-            if(isset($this->_server[$k]) && $v){
+        foreach ($server as $k => $v) {
+            if (isset($this->_server[$k]) && $v) {
                 $this->_server[$k] = $v;
             }
         }
         $this->_redis = new \Redis();
-        $this->connect();
+        $this->connect($this->_server['host'], $this->_server['port'], $this->_server['timeout']);
     }
 
     /**
-     * @return $this connect to redis server
+     * connect to redis server
+     * @param $host
+     * @param int $port
+     * @param float $timeout
+     * @return $this
      */
-    public function connect()
+    public function connect($host, $port = 6379, $timeout = 0.0)
     {
-        $this->_redis->connect($this->_server['host'], $this->_server['port']);
+        $this->_redis->connect($host, $port, $timeout);
         return $this;
     }
 
@@ -57,17 +62,17 @@ class Queue
      * @param int $timeout
      * @return bool|mixed
      */
-    public function dequeue($queue, $timeout=20)
+    public function dequeue($queue, $timeout = 20)
     {
-        try{
+        try {
             $item = $this->_redis->blPop($queue, $timeout);
-            if(!$item){
+            if (!$item) {
                 $this->_redis->ping();
             }
-        }catch (\Exception $e){
-            echo 'Error '.$e->getCode().': '.$e->getMessage()."\n";
-            $this->connect();
+        } catch (\Exception $e) {
+            echo 'Error ' . $e->getCode() . ': ' . $e->getMessage() . "\n";
+            $this->connect($this->_server['host'], $this->_server['port'], $this->_server['timeout']);
         }
-        return isset($item[1])?json_decode($item[1], 1): false;
+        return isset($item[1]) ? json_decode($item[1], 1) : false;
     }
 }
